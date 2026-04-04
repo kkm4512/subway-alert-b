@@ -1,0 +1,40 @@
+services:
+  app:
+    image: node:22-alpine
+    container_name: subway-alert-b
+    working_dir: /app
+    command: sh -c "npm install && npm run start:dev"
+    env_file:
+      - ./.env
+    environment:
+      SERVER_PORT: ${SERVER_PORT}
+      DB_MSSQL_HOST: ${DB_MSSQL_HOST}
+      DB_MSSQL_PORT: ${DB_MSSQL_PORT}
+      DB_MSSQL_NAME: ${DB_MSSQL_NAME}
+      DB_MSSQL_USER: ${DB_MSSQL_USER}
+      DB_MSSQL_PASSWORD: ${DB_MSSQL_PASSWORD}
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    volumes:
+      - ./:/app
+      - subway_alert_node_modules:/app/node_modules
+    depends_on:
+      - mssql
+    restart: unless-stopped
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: subway-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_COLLATION: Korean_Wansung_CI_AS
+    ports:
+      - "${MSSQL_PORT}:1433"
+    volumes:
+      - subway_alert_mssql_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  subway_alert_node_modules:
+  subway_alert_mssql_data:

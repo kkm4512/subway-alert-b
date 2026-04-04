@@ -1,4 +1,4 @@
-import { ResponseCode } from '../constant/response-code.constant';
+import { ResponseCode, ResponseCodeMapper } from '../constant/response-code.constant';
 
 /**
  * 공통 API 응답 모델
@@ -19,14 +19,15 @@ export class ResponseModel<T = null> {
   readonly items: T;
 
   private constructor(responseCode: ResponseCode, items: T) {
-    this.code = responseCode.code;
-    this.message = responseCode.message;
+    const detail = ResponseCodeMapper.get(responseCode);
+    this.code = detail.code;
+    this.message = detail.message;
     this.items = items;
   }
 
   /**
    * 응답 모델을 생성합니다.
-   * @param responseCode - 응답 코드 (예: CODE.SUCCESS, CODE.NOT_FOUND)
+    * @param responseCode - 응답 코드 (예: ResponseCode.SUCCESS, ResponseCode.NOT_FOUND)
    * @param items - 응답 데이터 (기본값: null)
    */
   static of<T = null>(responseCode: ResponseCode, items: T = null as T): ResponseModel<T> {

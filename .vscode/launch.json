@@ -11,6 +11,10 @@
       "restart": true,
       "sourceMaps": true,
       "cwd": "${workspaceFolder}",
+      "env": {
+        "DB_MSSQL_HOST": "localhost",
+        "DB_MSSQL_PORT": "11433"
+      },
       "envFile": "${workspaceFolder}/../.env",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]
