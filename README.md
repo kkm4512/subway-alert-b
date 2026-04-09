@@ -11,7 +11,7 @@
 
 ### 목적
 
-클라이언트가 역명 또는 역코드를 전달하면, 내부 MSSQL 데이터와 외부 서울 열린데이터 API를 조합해
+클라이언트가 역명 또는 역코드를 전달하면, 내부 SQLite 데이터와 외부 서울 열린데이터 API를 조합해
 표준 응답 포맷으로 지하철 정보를 반환합니다.
 
 ### 동작 방식
@@ -28,7 +28,7 @@
 - Node.js 22
 - NestJS 11
 - TypeScript
-- MSSQL (`mssql` 패키지)
+- SQLite (`data/subway.db`)
 
 ## 3) 로컬 실행 방법
 
@@ -44,12 +44,8 @@ npm run start:dev
 필수 환경변수는 아래와 같습니다.
 
 - `SERVER_PORT`: 서버 포트 (예: `3000`)
-- `DB_MSSQL_HOST`: MSSQL 호스트
-- `DB_MSSQL_PORT`: MSSQL 포트
-- `DB_MSSQL_NAME`: DB 이름
-- `DB_MSSQL_USER`: DB 계정
-- `DB_MSSQL_PASSWORD`: DB 비밀번호
 - `SEOUL_METRO_REALTIME_URL`: 서울시 실시간 도착 API Base URL
+- `PROFILE`: 실행 환경 값 (예: `LOCAL`, `PRD`)
 
 ## 5) 공통 응답 스펙
 
@@ -278,4 +274,5 @@ curl "http://localhost:3000/subway-first-last-time?statnCd=0200&updnLine=1"
 ## 7) 참고 사항
 
 - 본 서비스는 조회 중심 서비스이며, 기본 비즈니스 로직에서 데이터 INSERT/UPDATE/DELETE를 수행하지 않습니다.
+- 내부 정적 데이터는 SQLite 파일(`data/subway.db`)을 사용합니다.
 - 실시간 도착 API는 외부 연동 상태에 따라 응답 지연/누락이 발생할 수 있습니다.
