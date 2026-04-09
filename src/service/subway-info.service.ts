@@ -162,7 +162,9 @@ export class SubwayInfoService {
    * arrivalMinute = floor((barvlDt - 수신 후 경과 초) / 60), 음수이면 0
    */
   private toRealtimeArrivalResult(record: SubwayRealtimeArrivalRecord): SubwayRealtimeArrivalResult {
-    const elapsedSeconds = (Date.now() - new Date(record.recptnDt).getTime()) / 1000;
+    // recptnDt는 KST(+09:00) 기준 문자열이므로 타임존을 명시하여 파싱 (Docker 등 UTC 환경 대응)
+    const recptnDtKst = record.recptnDt.replace(' ', 'T') + '+09:00';
+    const elapsedSeconds = (Date.now() - new Date(recptnDtKst).getTime()) / 1000;
     const remainingSeconds = Number(record.barvlDt) - elapsedSeconds;
     const arrivalMinute = Math.max(0, Math.floor(remainingSeconds / 60));
     const parsedTrainLine = this.parseTrainLineName(record.trainLineNm);
