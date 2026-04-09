@@ -5,7 +5,7 @@ import { LogService } from './common/logger/log.service';
 import { ConsoleLogWriter } from './common/logger/writer/console.log-writer';
 import { FileLogWriter } from './common/logger/writer/file.log-writer';
 import { RestApiService } from './common/rest-api/rest-api.service';
-import { MssqlConnectionManager } from './config/mssql-connection.manager';
+import { SqliteConnectionManager } from './config/sqlite-connection.manager';
 import { SubwayFirstLastTrainRepository } from './repository/subway-first-last-train.repository';
 import { SubwayStationRepository } from './repository/subway-station.repository';
 import { SubwayStationExtRepository } from './repository/subway-station-ext.repository';
@@ -21,7 +21,7 @@ import { SubwayValidator } from './service/subway.validator';
     FileLogWriter,
     RestApiService,
     SubwayValidator,
-    MssqlConnectionManager,
+    SqliteConnectionManager,
     SubwayStationExtRepository,
     SubwayStationRepository,
     SubwayFirstLastTrainRepository,

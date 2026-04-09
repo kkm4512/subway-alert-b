@@ -20,5 +20,6 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY data/subway.db /app/data/subway.db
 EXPOSE 3000
 CMD ["node", "dist/main"]

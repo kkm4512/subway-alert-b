@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import sql from 'mssql';
-import { MssqlConnectionManager } from '../config/mssql-connection.manager';
+import { SqliteConnectionManager } from '../config/sqlite-connection.manager';
 
 /** SUBWAY_STATION 조회 결과 타입 */
 export interface SubwayStationRecord {
@@ -18,7 +17,7 @@ export interface SubwayStationRecord {
 @Injectable()
 export class SubwayStationRepository {
   constructor(
-    private readonly connectionManager: MssqlConnectionManager,
+    private readonly connectionManager: SqliteConnectionManager,
   ) {}
 
   /**
@@ -31,26 +30,37 @@ export class SubwayStationRepository {
     statnNm: string,
     lineNm: string,
   ): Promise<SubwayStationRecord | null> {
-    const pool = await this.connectionManager.getPool();
-    const result = await pool
-      .request()
-      .input('statnNm', sql.NVarChar(100), statnNm)
-      .input('lineNm', sql.NVarChar(100), lineNm)
-      .query(`
-        SELECT TOP (1000)
-          STATN_ID AS statnId,
-          SUBWAY_ID AS subwayId,
-          STATN_NM AS statnNm,
-          LINE_NM AS lineNm
-        FROM [SubwayDB].[dbo].[SUBWAY_STATION]
-        WHERE STATN_NM = @statnNm
-          AND LINE_NM = @lineNm
-      `);
+    const db = this.connectionManager.getDb();
+    
+    const query = `
+      SELECT
+        STATN_ID AS statnId,
+        SUBWAY_ID AS subwayId,
+        STATN_NM AS statnNm,
+        LINE_NM AS lineNm
+      FROM SUBWAY_STATION
+      WHERE STATN_NM = '${this.escapeString(statnNm)}' AND LINE_NM = '${this.escapeString(lineNm)}'
+      LIMIT 1
+    `;
 
-    if (result.recordset.length === 0) {
+    const results = db.exec(query);
+    if (!results || results.length === 0 || !results[0].values || results[0].values.length === 0) {
       return null;
     }
 
-    return result.recordset[0] as SubwayStationRecord;
+    const [statnId, subwayId, recordStatnNm, recordLineNm] = results[0].values[0];
+    return {
+      statnId: Number(statnId),
+      subwayId: Number(subwayId),
+      statnNm: String(recordStatnNm),
+      lineNm: String(recordLineNm),
+    };
+  }
+
+  /**
+   * SQL 문자열 특수문자 이스케이프
+   */
+  private escapeString(str: string): string {
+    return str.replace(/'/g, "''");
   }
 }

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import sql from 'mssql';
-import { MssqlConnectionManager } from '../config/mssql-connection.manager';
+import { SqliteConnectionManager } from '../config/sqlite-connection.manager';
 
 /** SUBWAY_STATION_EXT 조회 결과 타입 */
 export interface SubwayStationExtRecord {
@@ -18,7 +17,7 @@ export interface SubwayStationExtRecord {
 @Injectable()
 export class SubwayStationExtRepository {
   constructor(
-    private readonly connectionManager: MssqlConnectionManager,
+    private readonly connectionManager: SqliteConnectionManager,
   ) {}
 
   /**
@@ -27,25 +26,31 @@ export class SubwayStationExtRepository {
    * @returns 조회 결과 또는 null
    */
   async readByStationCode(statnCd: string): Promise<SubwayStationExtRecord | null> {
-    const pool = await this.connectionManager.getPool();
-    const result = await pool
-      .request()
-      .input('statnCd', sql.VarChar(4), statnCd)
-      .query(`
-        SELECT TOP (1)
-          STATN_CD AS statnCd,
-          STATN_NM AS statnNm,
-          LINE_NM AS lineNm,
-          EXT_CD AS extCd
-        FROM [SubwayDB].[dbo].[SUBWAY_STATION_EXT]
-        WHERE STATN_CD = @statnCd
-      `);
+    const db = this.connectionManager.getDb();
+    
+    const query = `
+      SELECT
+        STATN_CD AS statnCd,
+        STATN_NM AS statnNm,
+        LINE_NM AS lineNm,
+        EXT_CD AS extCd
+      FROM SUBWAY_STATION_EXT
+      WHERE STATN_CD = '${this.escapeString(statnCd)}'
+      LIMIT 1
+    `;
 
-    if (result.recordset.length === 0) {
+    const results = db.exec(query);
+    if (!results || results.length === 0 || !results[0].values || results[0].values.length === 0) {
       return null;
     }
 
-    return result.recordset[0] as SubwayStationExtRecord;
+    const [recordStatnCd, recordStatnNm, recordLineNm, recordExtCd] = results[0].values[0];
+    return {
+      statnCd: String(recordStatnCd),
+      statnNm: String(recordStatnNm),
+      lineNm: String(recordLineNm),
+      extCd: String(recordExtCd),
+    };
   }
 
   /**
@@ -54,20 +59,36 @@ export class SubwayStationExtRepository {
    * @returns 조회 결과 목록 (없으면 빈 배열)
    */
   async readByStationName(name: string): Promise<SubwayStationExtRecord[]> {
-    const pool = await this.connectionManager.getPool();
-    const result = await pool
-      .request()
-      .input('name', sql.NVarChar(100), name)
-      .query(`
-        SELECT TOP (1000)
-          STATN_CD AS statnCd,
-          STATN_NM AS statnNm,
-          LINE_NM AS lineNm,
-          EXT_CD AS extCd
-        FROM [SubwayDB].[dbo].[SUBWAY_STATION_EXT]
-        WHERE STATN_NM = @name
-      `);
+    const db = this.connectionManager.getDb();
+    
+    const query = `
+      SELECT
+        STATN_CD AS statnCd,
+        STATN_NM AS statnNm,
+        LINE_NM AS lineNm,
+        EXT_CD AS extCd
+      FROM SUBWAY_STATION_EXT
+      WHERE STATN_NM = '${this.escapeString(name)}'
+      LIMIT 1000
+    `;
 
-    return result.recordset as SubwayStationExtRecord[];
+    const results = db.exec(query);
+    if (!results || results.length === 0 || !results[0].values) {
+      return [];
+    }
+
+    return results[0].values.map((row) => ({
+      statnCd: String(row[0]),
+      statnNm: String(row[1]),
+      lineNm: String(row[2]),
+      extCd: String(row[3]),
+    }));
+  }
+
+  /**
+   * SQL 문자열 특수문자 이스케이프
+   */
+  private escapeString(str: string): string {
+    return str.replace(/'/g, "''");
   }
 }
