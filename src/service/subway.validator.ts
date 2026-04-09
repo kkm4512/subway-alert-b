@@ -11,8 +11,8 @@ export class SubwayValidator {
   private static readonly KOREAN_ONLY_REGEX = /^[가-힣\s]+$/;
   /** 한글/숫자(및 공백) 허용 정규식 */
   private static readonly KOREAN_NUMBER_REGEX = /^[0-9가-힣\s]+$/;
-  /** 역코드(4자리 숫자) 정규식 */
-  private static readonly SUBWAY_CODE_REGEX = /^\d{4}$/;
+  /** 역코드(3~4자리 숫자) 정규식 */
+  private static readonly SUBWAY_CODE_REGEX = /^\d{3,4}$/;
 
   /**
    * 지하철명 유효성을 검증합니다.
@@ -49,7 +49,7 @@ export class SubwayValidator {
   /**
    * 지하철 역코드 유효성을 검증합니다.
    * - 공백만 있는 값은 유효하지 않습니다.
-   * - 정확히 4자리 숫자 문자열만 허용합니다. (예: 0002, 0200, 1234)
+  * - 3~4자리 숫자 문자열만 허용합니다. (예: 222, 0002, 0200, 1234)
    * @param statnCd - 사용자 입력 역코드
    * @returns 유효하면 true, 유효하지 않으면 false
    */
