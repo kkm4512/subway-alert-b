@@ -98,6 +98,16 @@ export class SqliteConnectionManager implements OnModuleInit, OnModuleDestroy {
     `);
     db.run(`CREATE INDEX IF NOT EXISTS IX_SUBWAY_FIRST_LAST_TRAIN_LOOKUP 
       ON SUBWAY_FIRST_LAST_TRAIN(STATN_CD, UPDOWN_CD, DAY_CD);`);
+
+    // LINE_NM_MAP 테이블: SUBWAY_STATION_EXT와 SUBWAY_STATION 간 호선명 불일치 매핑
+    db.run(`
+      CREATE TABLE IF NOT EXISTS LINE_NM_MAP (
+        EXT_LINE_NM TEXT NOT NULL PRIMARY KEY,
+        STATION_LINE_NM TEXT NOT NULL
+      );
+    `);
+    db.run(`INSERT OR IGNORE INTO LINE_NM_MAP VALUES ('경의선', '경의중앙선')`);
+    db.run(`INSERT OR IGNORE INTO LINE_NM_MAP VALUES ('우이신설경전철', '우이신설선')`);
   }
 
   /**

@@ -27,15 +27,18 @@ export class SubwayStationExtRepository {
    */
   async readByStationCode(statnCd: string): Promise<SubwayStationExtRecord | null> {
     const db = this.connectionManager.getDb();
-    
+
+    // LINE_NM_MAP을 LEFT JOIN해 호선명 불일치를 자동 보정합니다.
+    // 매핑이 있으면 STATION 기준 호선명으로, 없으면 원본 호선명을 그대로 반환합니다.
     const query = `
       SELECT
-        STATN_CD AS statnCd,
-        STATN_NM AS statnNm,
-        LINE_NM AS lineNm,
-        EXT_CD AS extCd
-      FROM SUBWAY_STATION_EXT
-      WHERE STATN_CD = '${this.escapeString(statnCd)}'
+        e.STATN_CD AS statnCd,
+        e.STATN_NM AS statnNm,
+        COALESCE(m.STATION_LINE_NM, e.LINE_NM) AS lineNm,
+        e.EXT_CD AS extCd
+      FROM SUBWAY_STATION_EXT e
+      LEFT JOIN LINE_NM_MAP m ON m.EXT_LINE_NM = e.LINE_NM
+      WHERE e.STATN_CD = '${this.escapeString(statnCd)}'
       LIMIT 1
     `;
 
