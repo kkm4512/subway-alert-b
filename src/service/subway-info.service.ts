@@ -60,7 +60,13 @@ export interface SubwayRealtimeArrivalResult {
   readonly start: string;
   /** 도착/방면 정보 (예: 상월곡(한국과학기술연구원)방면) */
   readonly end: string;
-  /** 수신 시각 기준 남은 도착 시간(분), 음수이면 0 */
+  /**
+   * 수신 시각 기준 남은 도착 시간(분)
+   * - barvlDt > 0: 정확한 초 단위 역산
+   * - barvlDt = 0, arvlCd 0~2(진입/도착/출발): 0
+   * - barvlDt = 0, arvlCd 3~5(전역): 1
+   * - barvlDt = 0, arvlCd 99(운행중): arvlMsg2 전역 수 × 역간 평균(2분) 추정
+   */
   readonly arrivalMinute: number;
   /** 열차 종류 (일반/급행 등) */
   readonly btrainSttus: string;
@@ -159,15 +165,26 @@ export class SubwayInfoService {
 
   /**
    * 실시간 도착 raw 데이터를 응답 형태로 변환합니다.
-   * arrivalMinute = floor((barvlDt - 수신 후 경과 초) / 60), 음수이면 0
+   *
+   * barvlDt > 0: 정확한 잔여 시간 계산 (초 → 분)
+   * barvlDt = 0: 코레일 공지에 따라 arvlMsg2/arvlCd 기반 추정
+   *   - arvlCd 0~2 (진입/도착/출발): 0분
+   *   - arvlCd 3~5 (전역출발/진입/도착): 1분
+   *   - arvlCd 99 (운행중): arvlMsg2의 '[N]번째 전역' 파싱 후 N × 역간평균(2분)
    */
   private toRealtimeArrivalResult(record: SubwayRealtimeArrivalRecord): SubwayRealtimeArrivalResult {
-    // recptnDt는 KST(+09:00) 기준 문자열이므로 타임존을 명시하여 파싱 (Docker 등 UTC 환경 대응)
-    const recptnDtKst = record.recptnDt.replace(' ', 'T') + '+09:00';
-    const elapsedSeconds = (Date.now() - new Date(recptnDtKst).getTime()) / 1000;
-    const remainingSeconds = Number(record.barvlDt) - elapsedSeconds;
-    const arrivalMinute = Math.max(0, Math.floor(remainingSeconds / 60));
     const parsedTrainLine = this.parseTrainLineName(record.trainLineNm);
+    let arrivalMinute: number;
+
+    if (Number(record.barvlDt) > 0) {
+      // recptnDt는 KST(+09:00) 기준 문자열이므로 타임존을 명시하여 파싱 (Docker 등 UTC 환경 대응)
+      const recptnDtKst = record.recptnDt.replace(' ', 'T') + '+09:00';
+      const elapsedSeconds = (Date.now() - new Date(recptnDtKst).getTime()) / 1000;
+      const remainingSeconds = Number(record.barvlDt) - elapsedSeconds;
+      arrivalMinute = Math.max(0, Math.floor(remainingSeconds / 60));
+    } else {
+      arrivalMinute = this.estimateArrivalMinute(record.arvlMsg2, record.arvlCd);
+    }
 
     return {
       updnLine: UPDN_LINE_CODE[record.updnLine] ?? 0,
@@ -177,6 +194,34 @@ export class SubwayInfoService {
       btrainSttus: record.btrainSttus,
       arvlCd: ARVL_CD_LABEL[record.arvlCd] ?? record.arvlCd,
     };
+  }
+
+  /**
+   * barvlDt = 0일 때 arvlMsg2/arvlCd 기반으로 도착 예상 시간(분)을 추정합니다.
+   *
+   * arvlCd 0~2(진입/도착/출발) → 0분
+   * arvlCd 3~5(전역출발/진입/도착) → 1분
+   * arvlCd 99(운행중): arvlMsg2 '[N]번째 전역' 파싱 후 N × 2분
+   */
+  private estimateArrivalMinute(arvlMsg2: string, arvlCd: string): number {
+    // 진입/도착/출발: 이미 해당 역에 있거나 막 출발한 상태
+    if (['0', '1', '2'].includes(arvlCd)) {
+      return 0;
+    }
+
+    // 전역출발/전역진입/전역도착: 바로 전 역에 있는 상태
+    if (['3', '4', '5'].includes(arvlCd)) {
+      return 1;
+    }
+
+    // 운행중(99): '[N]번째 전역 (역명)' 패턴에서 전역 수 추출
+    const match = arvlMsg2.match(/\[(\d+)\]번째/);
+    if (match) {
+      const stationCount = parseInt(match[1], 10);
+      return stationCount * 2; // 역간 평균 약 2분
+    }
+
+    return 0;
   }
 
   /** trainLineNm 문자열을 start/end로 분리합니다. */
