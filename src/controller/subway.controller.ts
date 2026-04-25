@@ -21,6 +21,25 @@ export class SubwayController {
 	 * 예) GET /subway-info?statnNm=강남
 	 * @param statnNm - 지하철역/노선명
 	 */
+	@Get('subway-search')
+	async searchSubway(@Query('statnNm') statnNm?: string): Promise<ResponseModel<unknown>> {
+		const isValid = this.subwayValidator.validateSubwayName(statnNm);
+		if (!isValid) {
+			this.logService.warn(AppMessage.BAD_REQUEST, SubwayController.name);
+			return ResponseModel.of(ResponseCode.BAD_REQUEST);
+		}
+
+		const query = statnNm!.trim();
+		const searchResult = await this.subwayInfoService.searchStations(query);
+		if (searchResult.length === 0) {
+			this.logService.warn(AppMessage.DATA_NOT_FOUND, SubwayController.name);
+			return ResponseModel.of(ResponseCode.NOT_FOUND);
+		}
+
+		this.logService.info(`Subway search query received: ${query}`, SubwayController.name);
+		return ResponseModel.of(ResponseCode.SUCCESS, searchResult);
+	}
+
 	@Get('subway-info')
 	async getSubwayInfo(@Query('statnNm') statnNm?: string): Promise<ResponseModel<unknown>> {
 		const isValid = this.subwayValidator.validateSubwayName(statnNm);

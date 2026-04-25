@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import * as XLSX from 'xlsx';
+import { extractHangulInitials } from '../common/util/hangul.util';
 
 /**
  * SQL 문자열 특수문자 이스케이프
@@ -52,6 +53,16 @@ async function migrateXlsxToSqlite() {
         EXT_CD TEXT NOT NULL
       );
       CREATE INDEX IX_SUBWAY_STATION_EXT_NM_LINE ON SUBWAY_STATION_EXT(STATN_NM, LINE_NM);
+
+      CREATE TABLE SUBWAY_STATION_SEARCH (
+        STATN_CD TEXT NOT NULL PRIMARY KEY,
+        STATN_NM TEXT NOT NULL,
+        LINE_NM TEXT NOT NULL,
+        EXT_CD TEXT NOT NULL,
+        INITIALS TEXT NOT NULL
+      );
+      CREATE INDEX IX_SUBWAY_STATION_SEARCH_INITIALS ON SUBWAY_STATION_SEARCH(INITIALS);
+      CREATE INDEX IX_SUBWAY_STATION_SEARCH_STATN_NM ON SUBWAY_STATION_SEARCH(STATN_NM);
 
       CREATE TABLE SUBWAY_FIRST_LAST_TRAIN (
         SEQ INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +135,20 @@ async function migrateXlsxToSqlite() {
     } else {
       console.warn(`⚠ 파일 없음: ${stationExtFilePath}`);
     }
+
+    // SUBWAY_STATION_SEARCH 초기화
+    console.log('\n[2-1/3] SUBWAY_STATION_SEARCH 초기화 중...');
+    db.run(`DELETE FROM SUBWAY_STATION_SEARCH;`);
+    db.run(`INSERT INTO SUBWAY_STATION_SEARCH (STATN_CD, STATN_NM, LINE_NM, EXT_CD, INITIALS)
+            SELECT STATN_CD, STATN_NM, LINE_NM, EXT_CD, '' FROM SUBWAY_STATION_EXT;`);
+    const rawRows = db.exec(`SELECT STATN_CD, STATN_NM FROM SUBWAY_STATION_SEARCH;`)?.[0]?.values ?? [];
+    for (const row of rawRows) {
+      const statnCd = String(row[0]);
+      const statnNm = String(row[1]);
+      const initials = extractHangulInitials(statnNm);
+      db.run(`UPDATE SUBWAY_STATION_SEARCH SET INITIALS = '${escapeString(initials)}' WHERE STATN_CD = '${escapeString(statnCd)}';`);
+    }
+    console.log(`✓ SUBWAY_STATION_SEARCH 초기화 완료`);
 
     // SUBWAY_FIRST_LAST_TRAIN 마이그레이션
     console.log('\n[3/3] SUBWAY_FIRST_LAST_TRAIN.xlsx 마이그레이션 중...');

@@ -8,9 +8,9 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class SubwayValidator {
   /** 한글(및 공백)만 허용하는 정규식 */
-  private static readonly KOREAN_ONLY_REGEX = /^[가-힣\s]+$/;
+  private static readonly KOREAN_ONLY_REGEX = /^[가-힣\u3131-\u314E\s]+$/;
   /** 한글/숫자(및 공백) 허용 정규식 */
-  private static readonly KOREAN_NUMBER_REGEX = /^[0-9가-힣\s]+$/;
+  private static readonly KOREAN_NUMBER_REGEX = /^[0-9가-힣\u3131-\u314E\s]+$/;
   /** 역코드(3~4자리 숫자) 정규식 */
   private static readonly SUBWAY_CODE_REGEX = /^\d{3,4}$/;
 

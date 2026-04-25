@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import { extractHangulInitials } from '../common/util/hangul.util';
 
 /**
  * SQLite 연결 관리 클래스 (sql.js 기반)
@@ -49,6 +50,7 @@ export class SqliteConnectionManager implements OnModuleInit, OnModuleDestroy {
       this.saveToDisk(db);
     }
 
+    this.ensureSearchTable(db);
     this.db = db;
   }
 
@@ -108,6 +110,85 @@ export class SqliteConnectionManager implements OnModuleInit, OnModuleDestroy {
     `);
     db.run(`INSERT OR IGNORE INTO LINE_NM_MAP VALUES ('경의선', '경의중앙선')`);
     db.run(`INSERT OR IGNORE INTO LINE_NM_MAP VALUES ('우이신설경전철', '우이신설선')`);
+  }
+
+  /**
+   * 검색용 테이블이 없는 경우 생성하고 필요한 데이터를 채웁니다.
+   */
+  private ensureSearchTable(db: SqlJsDatabase): void {
+    if (!this.hasTable(db, 'SUBWAY_STATION_SEARCH')) {
+      this.createSearchTable(db);
+      this.populateSearchTable(db);
+      this.saveToDisk(db);
+      return;
+    }
+
+    if (this.isTableEmpty(db, 'SUBWAY_STATION_SEARCH') && this.hasTable(db, 'SUBWAY_STATION_EXT')) {
+      this.populateSearchTable(db);
+      this.saveToDisk(db);
+      return;
+    }
+
+    db.run(`CREATE INDEX IF NOT EXISTS IX_SUBWAY_STATION_SEARCH_INITIALS ON SUBWAY_STATION_SEARCH(INITIALS);`);
+    db.run(`CREATE INDEX IF NOT EXISTS IX_SUBWAY_STATION_SEARCH_STATN_NM ON SUBWAY_STATION_SEARCH(STATN_NM);`);
+  }
+
+  private hasTable(db: SqlJsDatabase, tableName: string): boolean {
+    const results = db.exec(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName.replace(/'/g, "''")}' LIMIT 1;`,
+    );
+    return !!results?.[0]?.values?.length;
+  }
+
+  private isTableEmpty(db: SqlJsDatabase, tableName: string): boolean {
+    const results = db.exec(`SELECT COUNT(1) AS cnt FROM ${tableName};`);
+    const count = results?.[0]?.values?.[0]?.[0];
+    return Number(count) === 0;
+  }
+
+  private createSearchTable(db: SqlJsDatabase): void {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS SUBWAY_STATION_SEARCH (
+        STATN_CD TEXT NOT NULL PRIMARY KEY,
+        STATN_NM TEXT NOT NULL,
+        LINE_NM TEXT NOT NULL,
+        EXT_CD TEXT NOT NULL,
+        INITIALS TEXT NOT NULL
+      );
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS IX_SUBWAY_STATION_SEARCH_INITIALS ON SUBWAY_STATION_SEARCH(INITIALS);`);
+    db.run(`CREATE INDEX IF NOT EXISTS IX_SUBWAY_STATION_SEARCH_STATN_NM ON SUBWAY_STATION_SEARCH(STATN_NM);`);
+  }
+
+  private populateSearchTable(db: SqlJsDatabase): void {
+    if (!this.hasTable(db, 'SUBWAY_STATION_EXT')) {
+      return;
+    }
+
+    const rawData = db.exec(`SELECT STATN_CD, STATN_NM, LINE_NM, EXT_CD FROM SUBWAY_STATION_EXT;`);
+    const rows = rawData?.[0]?.values ?? [];
+    if (rows.length === 0) {
+      return;
+    }
+
+    const insertStmt = db.prepare(
+      `INSERT OR REPLACE INTO SUBWAY_STATION_SEARCH (STATN_CD, STATN_NM, LINE_NM, EXT_CD, INITIALS)
+       VALUES (?, ?, ?, ?, ?);`,
+    );
+
+    try {
+      for (const row of rows) {
+        const statnCd = String(row[0]);
+        const statnNm = String(row[1]);
+        const lineNm = String(row[2]);
+        const extCd = String(row[3]);
+        const initials = extractHangulInitials(statnNm);
+
+        insertStmt.run([statnCd, statnNm, lineNm, extCd, initials]);
+      }
+    } finally {
+      insertStmt.free();
+    }
   }
 
   /**

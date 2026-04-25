@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { SqliteConnectionManager } from '../config/sqlite-connection.manager';
+import {
+  extractHangulInitials,
+  escapeLikePattern,
+  isCompatibilityJamoQuery,
+} from '../common/util/hangul.util';
 
 /** SUBWAY_STATION_EXT 조회 결과 타입 */
 export interface SubwayStationExtRecord {
@@ -63,19 +68,46 @@ export class SubwayStationExtRepository {
    */
   async readByStationName(name: string): Promise<SubwayStationExtRecord[]> {
     const db = this.connectionManager.getDb();
-    
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return [];
+    }
+
+    const escapedLikeName = escapeLikePattern(trimmedName);
+    const escapedExactName = this.escapeString(trimmedName);
+
+    if (isCompatibilityJamoQuery(trimmedName)) {
+      const query = `
+        SELECT
+          STATN_CD AS statnCd,
+          STATN_NM AS statnNm,
+          LINE_NM AS lineNm,
+          EXT_CD AS extCd
+        FROM SUBWAY_STATION_SEARCH
+        WHERE INITIALS LIKE '%${escapedLikeName}%' ESCAPE '\\'
+        ORDER BY STATN_NM
+        LIMIT 1000
+      `;
+      return this.mapResults(db.exec(query));
+    }
+
     const query = `
       SELECT
         STATN_CD AS statnCd,
         STATN_NM AS statnNm,
         LINE_NM AS lineNm,
-        EXT_CD AS extCd
-      FROM SUBWAY_STATION_EXT
-      WHERE STATN_NM = '${this.escapeString(name)}'
+        EXT_CD AS extCd,
+        CASE WHEN STATN_NM = '${escapedExactName}' THEN 0 ELSE 1 END AS rank_order
+      FROM SUBWAY_STATION_SEARCH
+      WHERE STATN_NM LIKE '%${escapedLikeName}%' ESCAPE '\\'
+      ORDER BY rank_order, STATN_NM
       LIMIT 1000
     `;
 
-    const results = db.exec(query);
+    return this.mapResults(db.exec(query));
+  }
+
+  private mapResults(results: any[]): SubwayStationExtRecord[] {
     if (!results || results.length === 0 || !results[0].values) {
       return [];
     }

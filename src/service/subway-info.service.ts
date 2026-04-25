@@ -98,6 +98,14 @@ export class SubwayInfoService {
   }
 
   /**
+   * 지하철 검색어로 SUBWAY_STATION_SEARCH 결과를 조회합니다.
+   * @param query - 사용자 입력 검색어 (초성 또는 역명)
+   */
+  async searchStations(query: string): Promise<SubwayStationExtRecord[]> {
+    return this.subwayStationExtRepository.readByStationName(query);
+  }
+
+  /**
    * 역코드/상하행으로 첫차/막차 시간을 조회합니다.
    * @param statnCd - 역코드
    * @param updnLine - 상하행 코드 (1:상행/내선, 2:하행/외선)
