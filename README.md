@@ -4,6 +4,8 @@
 이 프로젝트는 데이터 적재/수정 없이 조회(SELECT) 중심으로 동작하며, 아래 정보를 API로 제공합니다.
 
 - 역명 기준 역/호선 기본 정보
+- 역명 검색(초성 및 포함 검색) 결과
+- 역명 선택 후 상세 정보 조회
 - 역코드 기준 실시간 도착 정보
 - 역코드 + 상하행 기준 첫차/막차 정보
 
@@ -18,6 +20,7 @@
 
 - DB 조회 테이블
   - `SUBWAY_STATION_EXT`: 역코드/역명/호선 기본 정보
+  - `SUBWAY_STATION_SEARCH`: 역명 검색용 초성 및 포함 검색
   - `SUBWAY_STATION`: 노선 식별자(subwayId) 조회
   - `SUBWAY_FIRST_LAST_TRAIN`: 첫차/막차 시각 조회
 - 외부 API 조회
@@ -97,11 +100,81 @@ curl "http://localhost:3000/"
 
 ---
 
-### 6-2. 역명으로 역 정보 조회
+### 6-2. 역명 검색
+
+- Method/Path: `GET /subway-search`
+- Query Params
+  - `statnNm` (string, required): 검색어
+- 검색 규칙
+  - 정확히 일치하는 역명이 있으면 해당 역을 우선 반환
+  - 입력값이 1글자면 포함 검색 결과 반환
+  - 입력값이 2글자 이상이면 정확 일치가 없을 경우 포함 검색 결과 반환
+  - 초성 입력(예: `ㄱ`, `ㄴㄴ`)도 지원
+- 검증 규칙
+  - 공백 불가
+  - 한글/공백만 허용
+
+요청 예시:
+
+```bash
+curl "http://localhost:3000/subway-search?statnNm=돌곶이"
+```
+
+성공 응답 예시 (`200`):
+
+```json
+{
+  "code": 200,
+  "message": "SUCCESS",
+  "items": [
+    {
+      "statnCd": "2644",
+      "statnNm": "돌곶이",
+      "lineNm": "6호선",
+      "extCd": "643"
+    }
+  ]
+}
+```
+
+요청 예시(부분 포함 검색):
+
+```bash
+curl "http://localhost:3000/subway-search?statnNm=강남"
+```
+
+성공 응답 예시 (`200`):
+
+```json
+{
+  "code": 200,
+  "message": "SUCCESS",
+  "items": [
+    {
+      "statnCd": "0222",
+      "statnNm": "강남",
+      "lineNm": "2호선",
+      "extCd": "1002"
+    },
+    {
+      "statnCd": "4422",
+      "statnNm": "강남구청",
+      "lineNm": "8호선",
+      "extCd": "824"
+    }
+  ]
+}
+```
+
+---
+
+### 6-3. 역명으로 역 정보 조회
 
 - Method/Path: `GET /subway-info`
 - Query Params
-  - `statnNm` (string, required): 역명
+  - `statnNm` (string, required): 선택된 역명
+- 설명
+  - `subway-search`로 검색한 결과 중 하나를 선택한 뒤 상세 정보를 조회할 때 사용합니다.
 - 검증 규칙
   - 공백 불가
   - 한글/공백만 허용
@@ -151,7 +224,7 @@ curl "http://localhost:3000/subway-info?statnNm=강남"
 
 ---
 
-### 6-3. 역코드로 실시간 도착 조회
+### 6-4. 역코드로 실시간 도착 조회
 
 - Method/Path: `GET /subway-realtime-arrival`
 - Query Params
@@ -215,7 +288,7 @@ curl "http://localhost:3000/subway-realtime-arrival?statnCd=0200"
 
 ---
 
-### 6-4. 역코드/상하행으로 첫차·막차 조회
+### 6-5. 역코드/상하행으로 첫차·막차 조회
 
 - Method/Path: `GET /subway-first-last-time`
 - Query Params
